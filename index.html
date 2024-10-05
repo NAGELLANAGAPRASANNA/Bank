@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNN Model Application with PyScript</title>
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css">
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+</head>
+<body>
+    <h1>KNN Model Application</h1>
+    <div id="model-info">
+        <h2>Model Accuracy: <span id="accuracy-output">Calculating...</span></h2>
+    </div>
+
+    <div id="prediction-section">
+        <h2>Make a Prediction</h2>
+        <p>Enter the values for prediction:</p>
+        <label for="financial_flexibility">Financial Flexibility:</label>
+        <input type="number" id="financial_flexibility" step="0.1" min="0" max="1"><br>
+        <label for="competitiveness">Competitiveness:</label>
+        <input type="number" id="competitiveness" step="0.1" min="0" max="1"><br>
+        <label for="credibility">Credibility:</label>
+        <input type="number" id="credibility" step="0.1" min="0" max="1"><br>
+        <button id="predict-button">Predict</button>
+        <div id="predictionOutput"></div>
+    </div>
+<py-script>
+    from js import document
+    import micropip
+    import asyncio
+    import pyodide
+
+    async def install_packages():
+        await micropip.install("numpy")
+        await micropip.install("scikit-learn")
+
+    async def main():
+        await install_packages()
+
+        import numpy as np
+        from sklearn.neighbors import KNeighborsClassifier
+        from sklearn.model_selection import train_test_split
+        from sklearn.preprocessing import StandardScaler
+
+        # Example dataset (replace this with your actual dataset)
+        data = np.array([[0.5, 0.5, 0.5], [1.0, 0.5, 0.0], 
+                         [0.0, 0.5, 1.0], [1.0, 1.0, 1.0], 
+                         [0.0, 0.0, 0.0], [0.8, 0.6, 0.2], 
+                         [0.3, 0.4, 0.9], [0.1, 0.2, 0.1]])
+        labels = np.array([0, 1, 0, 1, 0, 1, 0, 1])  # Sample binary classes
+
+        # Train a KNN model
+        scaler = StandardScaler()
+        X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.3, random_state=42)
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+        knn = KNeighborsClassifier(n_neighbors=3)
+        knn.fit(X_train, y_train)
+
+        # Calculate accuracy and display it
+        accuracy = knn.score(X_test, y_test)
+        document.getElementById("accuracy-output").innerHTML = f"{accuracy * 100:.2f}%"
+
+        # Define a function to handle predictions
+        def make_prediction(event):
+            # Read input values
+            financial_flexibility = float(document.getElementById("financial_flexibility").value)
+            competitiveness = float(document.getElementById("competitiveness").value)
+            credibility = float(document.getElementById("credibility").value)
+
+            # Prepare the input array and standardize it
+            input_features = scaler.transform([[financial_flexibility, competitiveness, credibility]])
+
+            # Make a prediction using the KNN model
+            prediction = knn.predict(input_features)[0]
+
+            # Map prediction to output labels
+            prediction_label = 'Bankruptcy' if prediction == 0 else 'Non-Bankruptcy'
+            
+            # Display the prediction result
+            document.getElementById("predictionOutput").innerHTML = f"Predicted Value: {prediction_label}"
+
+        # Create a proxy object for the make_prediction function
+        make_prediction_proxy = pyodide.ffi.create_proxy(make_prediction)
+
+        # Attach the event listener using the proxy object
+        document.getElementById("predict-button").addEventListener("click", make_prediction_proxy)
+
+    # Schedule the main function
+    asyncio.ensure_future(main())
+</py-script>
+</body>
+</html>
